@@ -10,9 +10,9 @@ cursor = conn.cursor()
 
 
 
-bot = telebot.TeleBot("6682932102:AAHMz1UAGuE3er-ArL9DNJKCdev5m-XGPjY")
+bot = telebot.TeleBot("")
 
-TOKEN = "6682932102:AAHMz1UAGuE3er-ArL9DNJKCdev5m-XGPjy"
+TOKEN = ""
 # Подключаемся к базе данных
 def db_table_val(user_id: int, ip_address: str, telegram_id: int, game_nick: str):
     cursor.execute('INSERT INTO users(user_id, ip_address, telegram_id, game_nick) VALUES (?, ?, ?, ?)',
