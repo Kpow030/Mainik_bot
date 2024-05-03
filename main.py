@@ -6,9 +6,9 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContex
 
 
 
-bot = telebot.TeleBot("6682932102:AAHMz1UAGuE3er-ArL9DNJKCdev5m-XGPjY")
+bot = telebot.TeleBot("")
 
-TOKEN = "6682932102:AAHMz1UAGuE3er-ArL9DNJKCdev5m-XGPjy"
+TOKEN = ""
 
 
 
