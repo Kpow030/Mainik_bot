@@ -1,78 +1,77 @@
-import logging
-import sqlite3
 import telebot
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackContext
+import sqlite3
+import requests
 
 
 
-bot = telebot.TeleBot("")
+# Install token-bot
+bot = telebot.TeleBot('')
 
-TOKEN = ""
+# Connection to database
+conn = sqlite3.connect('database.sqlite')
+cursor = conn.cursor()
 
-
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-
-#@bot.message_handler(commands=['start'])
-#def start_message(message):
-#    bot.send_message(message.chat.id, 'Добро пожаловать')
-
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text('Please send your Telegram ID, in-game nickname, and I will save your IP address.')
+# Creating a table if it does not exist
+cursor.execute('''CREATE TABLE IF NOT EXISTS users
+                  (id INTEGER PRIMARY KEY, telegram_id INTEGER UNIQUE, ip_address TEXT, game_nickname TEXT)''')
+conn.commit()
 
 
-def check_user(update: Update, context: CallbackContext):
-    conn = connection_db()
-    telegram_id = update.message.from_user.id
-    c = conn.cursor()
+# Function to add a user to the database
+def add_user_to_db(telegram_id, ip_address, game_nickname):
+    conn_thread = sqlite3.connect('database.sqlite', check_same_thread=False)
+    cursor_thread = conn_thread.cursor()
+    cursor_thread.execute("INSERT INTO users (telegram_id, ip_address, game_nickname) VALUES (?,?,?)",
+                          (telegram_id, ip_address, game_nickname))
+    conn_thread.commit()
+    conn_thread.close()
+
+# Get user from db
+def get_user_from_db(telegram_id):
+    conn_thread = sqlite3.connect('database.sqlite', check_same_thread=False)
+    cursor_thread = conn_thread.cursor()
+    cursor_thread.execute("SELECT * FROM users WHERE telegram_id =?", [telegram_id])
+    user = cursor_thread.fetchone()
+    conn_thread.close()
+    return user
 
 
-def connection_db():
-    conn = sqlite3.connect('db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                (telegram_id INTEGER PRIMARY KEY,
-                nickname TEXT,
-                ip_address TEXT)''')
-    conn.commit()
-    return conn
 
-
-def save_user(update: Update, context: CallbackContext):
-    conn = connection_db()
-    telegram_id = update.message.from_user.id
-    nickname = update.message.text.split()[1]
-    ip_address = update.message.chat.ip
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO users (telegram_id, nickname, ip_address) VALUES (?, ?, ?)",
-              (telegram_id, nickname, ip_address))
-    conn.commit()
-    conn.close()
-    if c.rowcount == 0:
-        update.message.reply_text("Пользователь уже существует :)")
+def allow_user_to_play(telegram_id):
+    # Call game server API to allow user to play
+    response = requests.post('https://your-game-server.com/api/allow_user', json={'user_id': telegram_id})
+    if response.status_code == 200:
+        print(f"User {telegram_id} allowed to play")
     else:
-        update.message.reply_text('Пользователь зарегистрирован')
+        print(f"Error allowing user {telegram_id} to play: {response.text}")
 
 
 
+# A function for adding a user to the database
+@bot.message_handler(commands=['start'])
+def add_user_from_server(message):
+    bot.send_message(message.from_user.id, 'Hi, you need to register to play on our server.'
+                                            ' Just enter your nickname in the game. If you have been registered before,'
+                                            ' we will just check and give you access to the server. Thank you '
+                                             'For using our server. Have a nice game')
+
+# Register from server
+@bot.message_handler(content_types=['text'])
+def register(message):
+    ip_address = message.from_user.id
+    telegram_id = message.from_user.id
+    game_nickname = message.text
+    user = get_user_from_db(message.from_user.id)
+    if get_user_from_db(telegram_id) is None:
+        add_user_to_db(telegram_id, ip_address, game_nickname)
+        bot.send_message(message.from_user.id, "Thanks! You have been added to our server.")
+        allow_user_to_play(telegram_id)  # Allow user to play on game server
+    else:
+        bot.send_message(message.from_user.id, "You are already registered.")
+        bot.send_message(message.from_user.id , f"Your ID: {user[1]}\Your IP: {user[2]}\Your nickname: {user[3]}")
 
 
 
-def main(start_command=None):
-    updater = Updater('6682932102:AAHMz1UAGuE3er-ArL9DNJKCdev5m-XGPjY', use_context=True)
+# Starting bot
+bot.polling(none_stop=True, interval=0)
 
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler('start', start_command))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-
-    updater.start_polling()
-
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
