@@ -45,7 +45,6 @@ def add_user_from_server(message):
 @bot.message_handler(content_types=['text'])
 def register(message):
     try:
-        # Get the user's IP address using the socket module
         ip_address = socket.gethostbyname(socket.gethostname())
     except socket.gaierror:
         bot.send_message(message.from_user.id, "Error when getting an IP address.")
